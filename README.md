@@ -66,7 +66,3 @@ All hyperparameters, model paths, and training settings are stored in `config.ya
 After training, you can use the merged model for story generation with the **VLLM** library for fast, high-throughput inference.
 
 Prompts are typically short instructions like “Tell me a short story about a talking dog,” and the model generates child-friendly stories accordingly.
-
-
-
-If you want, I can also **write a polished GitHub description and folder structure section** that makes your repo look professional and easy to navigate. Do you want me to do that?
