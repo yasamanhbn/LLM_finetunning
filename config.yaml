@@ -1,14 +1,15 @@
-base_model: "medalpaca/medalpaca-7b"
+base_model: "unsloth/Llama-3.2-1B-Instruct"
 
 # Training hyperparameters
 training:
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 2
-  num_train_epochs: 6
-  learning_rate: 2e-4
+  num_train_epochs: 3
+  learning_rate: 0.001
   optim: "paged_adamw_32bit"
   fp16: true
-  output_dir: "/workspace/trained_models/medalpaca/"
+  output_dir: "/workspace/"
+  HF_Token: "YOUr_HF_Token"
 
 # LoRA / model-specific parameters
 model:
@@ -16,3 +17,9 @@ model:
   lora_rank: 128
   lora_dropout: 0.1
   load_quantized: null
+
+inference:
+  huggungFace_repo: "Your_HuggungFace_Model_Repo
+  tempture: 1
+  top_p: 0.95
+  top_k: -1

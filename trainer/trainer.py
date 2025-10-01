@@ -5,6 +5,8 @@ import torch
 from trl import SFTTrainer, SFTConfig
 from transformers import TrainerCallback
 
+from transformers import AutoModelForCausalLM
+from peft import PeftModel
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,23 +18,29 @@ class PushToHubCallback(TrainerCallback):
     at the end of each training epoch.
     """
 
-    def __init__(self, base_model: str, model_par_name: str = "", organization: Optional[str] = None, hub_token: Optional[str] = None):
+    def __init__(self, model, tokenizer, total_epoch, model_par_name: str = "", organization: Optional[str] = None, hub_token: Optional[str] = None):
         self.model_par_name = model_par_name
-        self.base_model = base_model
+        self.model = model
+        self.tokenizer = tokenizer
         self.organization = organization
         self.hub_token = hub_token
+        self.total_epoch = total_epoch
 
-    def on_epoch_end(self, args, state, control, model=None, tokenizer=None, **kwargs):
+    def on_epoch_end(self, args, state, control, **kwargs):
         epoch = str(int(state.epoch))
-        model_name = f"{self.model_par_name}_{epoch}"
+        model_name = f"{self.model_par_name}_Epoch{epoch}"
 
-        if model is None or tokenizer is None:
-            raise RuntimeError("Model or tokenizer not provided to PushToHubCallback.")
+        if int(self.total_epoch)-1 == int(epoch):
+            # Merge LoRA into base weights
+            merged_model = self.model.merge_and_unload()
 
-        logger.info(f"Pushing model and tokenizer to Hugging Face Hub: {model_name}")
-        model.push_to_hub(model_name, token=self.hub_token, organization=self.organization)
-        tokenizer.push_to_hub(model_name, token=self.hub_token, organization=self.organization)
-        logger.info("Model and tokenizer successfully pushed to Hub.")
+            if self.model is None or self.tokenizer is None:
+                raise RuntimeError("Model or tokenizer not provided to PushToHubCallback.")
+
+            logger.info(f"Pushing model and tokenizer to Hugging Face Hub: {model_name}")
+            merged_model.push_to_hub(model_name, token=self.hub_token, organization=self.organization)
+            self.tokenizer.push_to_hub(model_name, token=self.hub_token, organization=self.organization)
+            logger.info("Model and tokenizer successfully pushed to Hub.")
 
 
 class TrainerHandler:
@@ -65,7 +73,7 @@ class TrainerHandler:
         group_by_length: bool = True,
         packing: bool = False,
         max_seq_length: int = 1024,
-        dataset_text_field: str = "text",
+        dataset_text_field: str = "text_fmt",
         report_to: Optional[str] = None,  # e.g., "wandb", "tensorboard", or None
         save_total_limit: int = 2,
     ):

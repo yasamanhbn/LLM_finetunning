@@ -1,14 +1,12 @@
-import pandas as pd
-from datasets import Dataset
+from datasets import load_dataset, Dataset
 from typing import Optional
 
 
 class TinyStoriesDatasetHandler:
     def __init__(
         self,
-        path: str,
-        dataset_type: str = "train",   # "train", "valid", or "test"
-        file_type: str = "csv",
+        dataset_name: str = "roneneldan/TinyStories",
+        dataset_split: str = "train",   # "train", or "test"
         text_column: str = "text",      # TinyStories only has `text`
         output_column: str = "text_fmt",# formatted for trainer
         system_prompt: Optional[str] = None,
@@ -18,9 +16,8 @@ class TinyStoriesDatasetHandler:
         Handler for TinyStories dataset: wraps plain text stories into
         instruction-following or chat-based format for fine-tuning.
         """
-        self.path = path
-        self.dataset_type = dataset_type.lower()
-        self.file_type = file_type
+        self.dataset_name = dataset_name
+        self.dataset_split = dataset_split.lower()
         self.text_column = text_column
         self.output_column = output_column
         self.system_prompt = (
@@ -32,12 +29,12 @@ class TinyStoriesDatasetHandler:
         self.dataset = None
         self.load_and_process_dataset()
 
-    def format_chat_template(self, row: dict) -> dict:
+    def format_chat_template(self, example: dict) -> dict:
         """
         Format a TinyStories example as chat messages if tokenizer supports chat_template,
         otherwise fall back to instruction-style text prompt.
         """
-        story_text = row[self.text_column]
+        story_text = example[self.text_column]
 
         if hasattr(self.tokenizer, "chat_template") and self.tokenizer.chat_template:
             messages = [
@@ -46,13 +43,13 @@ class TinyStoriesDatasetHandler:
             ]
 
             # For training, include the story as assistant response
-            if self.dataset_type != "test":
+            if self.dataset_split != "test":
                 messages.append({"role": "assistant", "content": story_text})
 
-            row[self.output_column] = self.tokenizer.apply_chat_template(
+            example[self.output_column] = self.tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
-                add_generation_prompt=(self.dataset_type == "test"),
+                add_generation_prompt=(self.dataset_split == "test"),
             )
         else:
             # Fallback for non-chat models
@@ -64,26 +61,23 @@ class TinyStoriesDatasetHandler:
 Tell me a short story.
 
 ### Response:
-{story_text if self.dataset_type != "test" else ""}
+{story_text if self.dataset_split != "test" else ""}
 """
-            row[self.output_column] = prompt.strip()
+            example[self.output_column] = prompt.strip()
 
-        return row
+        return example
 
     def load_and_process_dataset(self):
         """
-        Load TinyStories, convert to HuggingFace dataset, and format each row.
+        Load TinyStories from Hugging Face Hub and format each row.
         """
-        if self.file_type == "csv":
-            df = pd.read_csv(self.path)
-        elif self.file_type == "json":
-            df = pd.read_json(self.path, lines=True)
+        if self.dataset_split=="test":
+          split="validation"
         else:
-            raise ValueError(f"Unsupported file type: {self.file_type}")
-
-        dataset = Dataset.from_pandas(df)
-        dataset = dataset.map(self.format_chat_template, num_proc=4)
-
+          split="train"
+        dataset = load_dataset(self.dataset_name, split=split)
+        
+        dataset = dataset.map(self.format_chat_template, num_proc=1)
         self.dataset = dataset
 
     def get_dataset(self) -> Dataset:

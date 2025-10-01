@@ -18,6 +18,7 @@ class ModelHandler:
     def __init__(
         self,
         base_model: str,
+        inference=False,
         load_quantized: Optional[int] = None,  # Choose from [None, 4, 8]
         device_map: str = "auto",
         tokenizer_trust_remote_code: bool = True,
@@ -43,7 +44,11 @@ class ModelHandler:
         # Determine dtype and attention implementation
         self.torch_dtype, self.attn_implementation = self._set_attention_config()
 
-        self.load_model_and_tokenizer()
+        if inference:
+            self.load_tokenizer()
+        
+        else:
+            self.load_model_and_tokenizer()
 
     # ---------------- Tokenizer ----------------
     def load_tokenizer(self):

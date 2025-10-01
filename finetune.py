@@ -1,11 +1,11 @@
 import yaml
-from model_handler import ModelHandler
-from dataset_handler import TinyStoriesDatasetHandler
-from trainer_handler import TrainerHandler, PushToHubCallback
+from model import ModelHandler
+from dataset import TinyStoriesDatasetHandler
+from trainer import TrainerHandler, PushToHubCallback
 
 if __name__ == '__main__':
     # Load config
-    with open("config.yaml", "r") as f:
+    with open("/content/LLM_Fintunning/config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
     base_model = config["base_model"]
@@ -13,7 +13,7 @@ if __name__ == '__main__':
     model_params = config["model"]
 
     # Generate a dynamic model name based on changed hyperparameters
-    model_name = "{base_model}_storyTelling_"
+    model_name = f"Llama1B_storyTelling"
     print(f"🔹 Model Name: {model_name}")
 
     # Load Model and Tokenizer
@@ -29,16 +29,14 @@ if __name__ == '__main__':
 
     # Load Datasets
     train_dataset = TinyStoriesDatasetHandler(
-        path="train.csv",
-        dataset_type="train",
+        dataset_split="train",
         text_column="text",
         output_column="text_fmt",
         tokenizer=tokenizer,
     ).get_dataset()
 
     valid_dataset = TinyStoriesDatasetHandler(
-        path="valid.csv",
-        dataset_type="valid",
+        dataset_split="test",
         text_column="text",
         output_column="text_fmt",
         tokenizer=tokenizer,
@@ -56,8 +54,11 @@ if __name__ == '__main__':
 
     trainer_handler.trainer.add_callback(
         PushToHubCallback(
-            base_model=model,
+            model=model,
+            tokenizer=tokenizer,
             model_par_name=model_name,
+            total_epoch = training_params['num_train_epochs'],
+            hub_token= training_params['HF_Token']
         )
     )
 
